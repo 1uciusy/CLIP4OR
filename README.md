@@ -115,5 +115,5 @@ To be published.
 # Acknowledgement
 
 Many thanks to these excellent open source projects:
-- [Informer](https://github.com/WangYueFt/detr3d) 
+- [Informer](https://github.com/zhouhaoyi/Informer2020) 
 - [ORFD](https://github.com/chaytonmin/Off-Road-Freespace-Detection)
