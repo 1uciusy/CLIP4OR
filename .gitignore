@@ -1,3 +1,19 @@
+*lib/
+*__pycache__/
+*share/
+*.idea/
+*.DS_Store
+*include/
+
+*train.sh
+*demo.sh
+*test.sh
+
+*clip_pretrain.py
+*cross_modal_retrival.py
+*dev.py
+*exp_zoo.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
