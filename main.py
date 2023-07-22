@@ -82,7 +82,7 @@ def parse(args):
 def main_worker(rank, world_size, args, ):
     setup(rank, world_size)
     model = EXP(rank)
-    model.models_exclude("CLIP4OR_v", "CLIP4OR_s")
+    model.models_exclude("CLIP4OR_v", "CLIP4OR_s", "informer")
     # multiprocessing may cause problem when logger is defined, `mkdir runs` first would be fine.
     if rank == 0:
         logger = Logger()
