@@ -24,17 +24,15 @@
 - mmengine==0.7.2
 - mmsegmentation==0.30.0
 
-## Install rospy with pip
+## Install rospy via pip
 
 ```shell
 pip install rospy-all --extra-index-url https://rospypi.github.io/simple/
 ```
 
-## Install mm related libraries
+## Install MMlab
 
-`openmim` is recommended. 
-
-It takes certain efforts to prepare `mm` series libraries.
+`openmim` is recommended. The following packages are installed follow the instruction of [ORFD](https://github.com/chaytonmin/Off-Road-Freespace-Detection)
 
 ```shell
 pip install openmim
@@ -115,5 +113,6 @@ To be published.
 # Acknowledgement
 
 Many thanks to these excellent open source projects:
+- [TartanDrive](https://github.com/castacks/tartan_drive/)
 - [Informer](https://github.com/zhouhaoyi/Informer2020) 
 - [ORFD](https://github.com/chaytonmin/Off-Road-Freespace-Detection)

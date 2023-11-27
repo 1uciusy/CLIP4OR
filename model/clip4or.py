@@ -158,27 +158,22 @@ class Sensor1DCNN(nn.Module):
 
 class CLIP4OR(nn.Module):
     def __init__(self, enc_in=27, d_model=128, n_head=128, max_seq_length=240, out_features=128, scale=True,
-                 action_vision=False, vision_encoder="swin_t", imagenet_pretrained=False):
+                 use_action=True, use_vision=True, vision_encoder="swin_t", imagenet_pretrained=True):
         """
         :param enc_in: input sensor dimension
         :param d_model: Attention dimension
         :param n_head: Attention head
         :param max_seq_length: maximum sensor length supported
         :param scale: learnable temperature, True for enable
-        :param action_vision: fuse action and vision before aligned to state, True for yes
         """
         assert d_model % n_head == 0
         super(CLIP4OR, self).__init__()
-        self.action_vision = action_vision
-        self.action_vision_cmb = nn.Identity()
-        if action_vision:
-            # self.action_encoder = SensorNaiveTFEncoder(enc_in=2, d_model=d_model, n_head=n_head,
-            #                                            max_seq_length=max_seq_length, num_layers=num_layers,
-            #                                            dim_feedforward=dim_feedforward)
-            self.action_encoder = Sensor1DCNN(enc_in=2, d_model=d_model, max_seq_length=max_seq_length)
-            self.action_projector = get_proj(in_features=d_model, out_features=out_features)
-            self.action_vision_cmb = nn.Linear(in_features=out_features * 2, out_features=out_features)
-            enc_in -= 2
+        assert use_action or use_vision
+        self.action = use_action
+        self.vision = use_vision
+        self.action_encoder = Sensor1DCNN(enc_in=2, d_model=d_model, max_seq_length=max_seq_length)
+        self.action_projector = get_proj(in_features=d_model, out_features=out_features)
+        self.action_vision_cmb = nn.Linear(in_features=out_features * 2, out_features=out_features)
 
         if vision_encoder.lower() == "swin_t":
             self.vision_encoder = nn.Sequential(
@@ -190,59 +185,68 @@ class CLIP4OR(nn.Module):
                 get_swin_b(pretrain=imagenet_pretrained),
                 nn.Linear(in_features=1024, out_features=128)
             )
+        elif vision_encoder.lower() == "offnet_encoder":
+            self.vision_encoder = nn.Identity()
+            raise NotImplementedError
         self.vision_projector = get_proj(in_features=out_features, out_features=out_features)
 
-        # self.sensor_encoder = SensorNaiveTFEncoder(enc_in, d_model=d_model, n_head=n_head,
-        #                                            max_seq_length=max_seq_length,
-        #                                            num_layers=num_layers, dim_feedforward=dim_feedforward)
-        self.sensor_encoder = Sensor1DCNN(enc_in=enc_in, max_seq_length=max_seq_length, d_model=d_model)
-        self.sensor_projector = get_proj(in_features=d_model, out_features=out_features)
+        # if self.action:
+        #     self.state_encoder = Sensor1DCNN(enc_in=enc_in - 2, max_seq_length=max_seq_length, d_model=d_model)
+        # else:
+        #     self.state_encoder = Sensor1DCNN(enc_in=enc_in, max_seq_length=max_seq_length, d_model=d_model)
+        self.state_encoder = Sensor1DCNN(enc_in=enc_in - 2, max_seq_length=max_seq_length, d_model=d_model)
+        self.state_projector = get_proj(in_features=d_model, out_features=out_features)
         self.scale = scale
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     def encode_vision(self, vision: torch.Tensor, sensor: torch.Tensor):
-        vision_feature = self.vision_encoder(vision)
-        vision_feature = vision_feature / torch.norm(vision_feature, dim=1, keepdim=True)
-
-        vision = self.vision_projector(vision_feature)
-        vision = vision / torch.norm(vision, dim=1, keepdim=True)
-
-        action_feature = None
-        if self.action_vision:
-            action = sensor[:, :, :2]
-            action_feature = self.action_encoder(action)
+        vision_embed = action_embed = None
+        vision_feature = action_feature = None
+        if self.vision:
+            vision_feature = self.vision_encoder(vision)
+            vision_feature = vision_feature / torch.norm(vision_feature, dim=1, keepdim=True)
+            vision_embed = self.vision_projector(vision_feature)
+            vision_embed = vision_embed / torch.norm(vision_embed, dim=1, keepdim=True)
+        if self.action:
+            action_input = sensor[:, :, :2]
+            action_feature = self.action_encoder(action_input)
             action_feature = action_feature / torch.norm(action_feature, dim=1, keepdim=True)
-            action_output = self.action_projector(action_feature)
-            action_output = action_output / torch.norm(action_output, dim=1, keepdim=True)
-            vision = torch.cat((vision, action_output), dim=1)
+            action_embed = self.action_projector(action_feature)
+            action_embed = action_embed / torch.norm(action_embed, dim=1, keepdim=True)
 
-        vision = self.action_vision_cmb(vision)
-        vision = vision / torch.norm(vision, dim=1, keepdim=True)
-        return vision, vision_feature, action_feature
+        if vision_embed is None:
+            vision_embed = torch.zeros_like(action_embed, device=action_embed.device)
+        if action_embed is None:
+            action_embed = torch.zeros_like(vision_embed, device=vision_embed.device)
+        av_embed = torch.cat((vision_embed, action_embed), dim=1)
+        av_embed = self.action_vision_cmb(av_embed)
+        av_embed = av_embed / torch.norm(av_embed, dim=1, keepdim=True)
+        return av_embed, vision_feature, action_feature
 
-    def encode_sensor(self, sensor: torch.Tensor):
-        if self.action_vision:
-            sensor = sensor[:, :, 2:]
-        sensor_feature = self.sensor_encoder(sensor)
-        sensor_feature = sensor_feature / torch.norm(sensor_feature, dim=1, keepdim=True)
+    def encode_state(self, sensor: torch.Tensor):
+        state = sensor[:, :, 2:]  # if self.action else sensor
+        state_feature = self.state_encoder(state)
+        state_feature = state_feature / torch.norm(state_feature, dim=1, keepdim=True)
 
-        sensor = self.sensor_projector(sensor_feature)
-        sensor = sensor / torch.norm(sensor, dim=1, keepdim=True)
-        return sensor, sensor_feature
+        state = self.state_projector(state_feature)
+        state = state / torch.norm(state, dim=1, keepdim=True)
+        return state, state_feature
 
     def forward(self, vision: torch.Tensor, sensor: torch.Tensor):
-        vision_emb, vf, af = self.encode_vision(vision, sensor)
-        sensor_emb, sf = self.encode_sensor(sensor)
+        av_emb, vf, af = self.encode_vision(vision, sensor)
+        state_emb, sf = self.encode_state(sensor)
 
         logit_scale = torch.exp(self.logit_scale)
-        logit = vision_emb @ sensor_emb.t()
+        logit = av_emb @ state_emb.t()
         if self.scale:
             logit = logit_scale * logit
 
-        return logit, vf, sf, af, vision_emb, sensor_emb  # logit[a][b], dot product of vision[a] & sensor[b]
+        return logit, vf, sf, af, av_emb, state_emb  # logit[a][b], dot product of vision[a] & sensor[b]
 
 
 if __name__ == '__main__':
+    # for debug use
+    batch_size = 3
     enc_in = 27
     d_model = 128
     n_head = 128
@@ -252,15 +256,14 @@ if __name__ == '__main__':
     dim_feedforward = 128
 
     clip = CLIP4OR()
-    test_data = torch.randn((2, seq_length, enc_in))
-    test_output = clip.encode_sensor(test_data)
-    test_img = torch.randn((2, 3, 128, 128))
+    test_data = torch.randn((batch_size, seq_length, enc_in))
+    test_output = clip.encode_state(test_data)
+    test_img = torch.randn((batch_size, 3, 128, 128))
     test_output_img = clip.encode_vision(test_img, test_data)
     what = clip(test_img, test_data)
 
-    clip = CLIP4OR(action_vision=True)
-    test_data = torch.randn((2, seq_length, enc_in))
-    test_output = clip.encode_sensor(test_data)
-    test_img = torch.randn((2, 3, 128, 128))
-    test_output_img = clip.encode_vision(test_img, test_data)
+    clip = CLIP4OR(use_action=True, use_vision=False)
+    what = clip(test_img, test_data)
+
+    clip = CLIP4OR(use_action=False, use_vision=True)
     what = clip(test_img, test_data)

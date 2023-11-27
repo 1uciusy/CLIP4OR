@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="yangyi@172.18.32.63:22 password" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+    <option name="confirmBeforeUploading" value="false" />
+    <serverData>
+      <paths name="yangyi@172.18.32.63:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/yangyi/wd/paper/" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath path="/home/yangyi/wd/paper/pyvenv.cfg" />
+            <excludedPath path="/home/yangyi/wd/paper/bin" />
+            <excludedPath path="/home/yangyi/wd/paper/include" />
+            <excludedPath path="/home/yangyi/wd/paper/lib" />
+            <excludedPath path="/home/yangyi/wd/paper/lib64" />
+            <excludedPath path="/home/yangyi/wd/paper/share" />
+            <excludedPath path="/home/yangyi/wd/paper/ros_parse/__pycache__" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>

@@ -1,0 +1,2 @@
+#CUDA_VISIBLE_DEVICES=0
+python3 test.py --dataroot '/mnt/filesystem4/yangyi/ORFD' --dataset ORFD --name ORFD --use_sne --prob_map  --epoch best --extra_v_encoder --pretrain_model_path '/home/yangyi/wd/paper/checkpoint/Clip_240_9.cpt' --fix_v_encoder

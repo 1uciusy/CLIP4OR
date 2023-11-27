@@ -359,7 +359,7 @@ class MixVisionTransformer(nn.Module):
         self.extra_v_encoder = extra_v_encoder
         self.only_extra_v_encoder = only_extra_v_encoder
         if load_pth:
-            clip = CLIP(action_vision=True)
+            clip = CLIP()
             if "Clip_240_v" in load_pth or "Clip_240_scratch_v_9" in load_pth:
                 net = nn.Sequential(
                     CLIP().vision_encoder,

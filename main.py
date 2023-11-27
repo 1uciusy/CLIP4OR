@@ -11,26 +11,30 @@ from torch.utils.data import distributed, DataLoader
 from tqdm import trange
 
 from exp import EXP
-from ros_parse.parse import Parser
-from ros_parse.parser_zoo import *
+# from ros_parse.parse import Parser
+# from ros_parse.parser_zoo import *
 from utils.dataset import IntegratedBags
 
 parser = argparse.ArgumentParser(prog="CLIP4OR", description="", )
+parser.add_argument("--exp_name", default="", type=str)
 parser.add_argument("--num_gpu", default=2, type=int)
 # extract data from bags
-parser.add_argument("--parse_bag", default=False, type=bool)
+parser.add_argument("--parse_bag", default=False, action="store_true")
 parser.add_argument("--bag_path", default="./bags", type=str)  # directory the bag is stored
 parser.add_argument("--parse_path", default="./parsed_bags", type=str)  # directory the parsed data is stored
 parser.add_argument("--n_parallel_parse", default=1, type=int)  # number of workers to parse, not the more, the better
 
 # pretrain
-parser.add_argument("--pretrain", default=False, type=bool)
+parser.add_argument("--pretrain", default=False, action="store_true")
 parser.add_argument("--pretrain_epochs", default=10, type=int)
 parser.add_argument("--pretrain_batch", default=64, type=int)
+parser.add_argument("--use_vision", default=False, action="store_true")
+parser.add_argument("--use_action", default=False, action="store_true")
 # finetune
-parser.add_argument("--finetune", default=False, type=bool)
+parser.add_argument("--finetune", default=False, action="store_true")
 parser.add_argument("--finetune_epochs", default=240, type=int)
 parser.add_argument("--finetune_batch", default=64, type=int)
+parser.add_argument("--finetune_model", default="informer", type=str)
 # resume
 parser.add_argument("--resume_epoch", default=None, type=int)
 
@@ -53,8 +57,8 @@ class Logger(SummaryWriter):
 def main(world_size, command=parser, ):
     args = command.parse_args()
     print(args)
-    if args.parse_bag:
-        parse(args)
+    # if args.parse_bag:
+    #     parse(args)
 
     mp.spawn(main_worker, args=(world_size, args,), nprocs=world_size, join=True)
 
@@ -71,17 +75,17 @@ def cleanup():
     dist.destroy_process_group()
 
 
-def parse(args):
-    parser = (State, Action, ObservImg, ObservRGBMap, ObservHeightMap, Imu, Shock, RPM, Pedals)
-    p = Parser(args.bag_path, args.parse_path, False, *parser)
-    print(
-        f"The TartanDrive ROS bag saved in {args.bag_path} will be parsed into {args.parse_path} with {args.n_parallel_parse} workers", )
-    p.parallel_parse(size=args.n_parallel_parse)
+# def parse(args):
+#     parser = (State, Action, ObservImg, ObservRGBMap, ObservHeightMap, Imu, Shock, RPM, Pedals)
+#     p = Parser(args.bag_path, args.parse_path, False, *parser)
+#     print(
+#         f"The TartanDrive ROS bag saved in {args.bag_path} will be parsed into {args.parse_path} with {args.n_parallel_parse} workers", )
+#     p.parallel_parse(size=args.n_parallel_parse)
 
 
 def main_worker(rank, world_size, args, ):
     setup(rank, world_size)
-    model = EXP(rank)
+    model = EXP(rank, clip4or_cfg={"use_action": args.use_action, "use_vision": args.use_vision})
     model.models_exclude("CLIP4OR_v", "CLIP4OR_s", "informer")
     # multiprocessing may cause problem when logger is defined, `mkdir runs` first would be fine.
     if rank == 0:
@@ -125,7 +129,7 @@ def main_worker(rank, world_size, args, ):
                         "optimizer": d["optimizer"].state_dict(),
                         "scheduler": d["scheduler"].state_dict(),
                     }
-                    torch.save(state, f"./checkpoint/{epoch}_{k}.cpt")
+                    torch.save(state, f"./checkpoint/{args.exp_name}_{k}_{epoch}.cpt")
             dist.barrier()
         model.scheduler_step()
 

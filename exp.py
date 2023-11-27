@@ -32,7 +32,7 @@ class FeatureNormalizer(nn.Module):
 
 
 class EXP(object):
-    def __init__(self, rank, debug=False):
+    def __init__(self, rank, clip4or_cfg=None, debug=False, ):
         self.rank = rank
         self.debug = debug
         self.setting = {
@@ -41,11 +41,11 @@ class EXP(object):
             "CLIP4OR_v": dict(),
             "CLIP4OR_s": dict(),
         }
-        self.setting["informer"]["model"] = Informer(enc_in=27, dec_in=2, c_out=7, seq_len=20, label_len=0, out_len=20,
-                                                     factor=4, d_model=128, n_heads=9, d_ff=128, dropout=0.0)
-        # self.setting["informer"]["model"] = Informer(enc_in=27, dec_in=2, c_out=7, seq_len=40, label_len=0, out_len=20,
+        # self.setting["informer"]["model"] = Informer(enc_in=27, dec_in=2, c_out=7, seq_len=20, label_len=0, out_len=20,
         #                                              factor=4, d_model=128, n_heads=9, d_ff=128, dropout=0.0)
-        self.setting["CLIP4OR"]["model"] = CLIP4OR(action_vision=True, imagenet_pretrained=True)
+        self.setting["informer"]["model"] = Informer(enc_in=27, dec_in=2, c_out=7, seq_len=40, label_len=0, out_len=20,
+                                                     factor=4, d_model=128, n_heads=9, d_ff=128, dropout=0.0)
+        self.setting["CLIP4OR"]["model"] = CLIP4OR() if not clip4or_cfg else CLIP4OR(**clip4or_cfg)
         self.setting["CLIP4OR_v"]["model"] = nn.Sequential(
             CLIP4OR(imagenet_pretrained=True).vision_encoder,
             FeatureNormalizer(),
@@ -53,9 +53,9 @@ class EXP(object):
             FeatureNormalizer(),
         )
         self.setting["CLIP4OR_s"]["model"] = nn.Sequential(
-            CLIP4OR(imagenet_pretrained=True).sensor_encoder,
+            CLIP4OR(imagenet_pretrained=True).state_encoder,
             FeatureNormalizer(),
-            CLIP4OR(imagenet_pretrained=True).sensor_projector,
+            CLIP4OR(imagenet_pretrained=True).state_projector,
             FeatureNormalizer(),
         )
 
@@ -204,8 +204,8 @@ class EXP(object):
         self.setting["CLIP4OR"]["optimizer"].step()
 
         return loss.detach(), \
-               torch.sum(torch.diag(self.softmax0(logit))) / b, \
-               torch.sum(torch.diag(self.softmax1(logit))) / b
+            torch.sum(torch.diag(self.softmax0(logit))) / b, \
+            torch.sum(torch.diag(self.softmax1(logit))) / b
 
     def finetune_train(self, data):
         # use data_preprocess4
@@ -273,8 +273,8 @@ class EXP(object):
         loss += self.ce_loss(logit_s, gt)
         loss += self.ce_loss(logit_v, gt)
         return loss, \
-               torch.sum(torch.diag(self.softmax0(logit_v))) / b, \
-               torch.sum(torch.diag(self.softmax0(logit_s))) / b
+            torch.sum(torch.diag(self.softmax0(logit_v))) / b, \
+            torch.sum(torch.diag(self.softmax0(logit_s))) / b
 
 
 if __name__ == '__main__':
