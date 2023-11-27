@@ -3,7 +3,6 @@
 # CLIP4OR: multi-modal self-supervised learning for off-road autonomous driving
 </div>
 
----
 
 # Method
 
