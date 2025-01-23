@@ -1,6 +1,6 @@
 <div align="center"> 
 
-# CLIP4OR: multi-modal self-supervised learning for off-road autonomous driving
+# MCRL4OR: Multimodal Contrastive Representation Learning for Off-Road Environmental Perception
 </div>
 
 
